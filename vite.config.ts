@@ -8,6 +8,35 @@ type StravaProxyConfig = {
   clientSecret: string
 }
 
+type CoachingProxyConfig = {
+  supabaseUrl: string
+  supabaseKey: string
+  anthropicKey: string
+}
+
+function coachingMessageProxy(config: CoachingProxyConfig): Plugin {
+  return {
+    name: 'coaching-message-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/coaching-message', (req: IncomingMessage, res: ServerResponse) => {
+        import('./api/coaching-message.js')
+          .then(mod => mod.buildCoachingMessage(config))
+          .then(result => {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(result))
+          })
+          .catch((err: Error) => {
+            console.error('[coaching-message-proxy]', err)
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err.message }))
+          })
+      })
+    },
+  }
+}
+
 // Dev-only middleware: exchanges the Strava auth code for tokens server-side
 // so STRAVA_CLIENT_SECRET never reaches the browser.
 // In production, api/strava/token.ts (Vercel serverless function) handles this.
@@ -93,6 +122,11 @@ export default defineConfig(({ mode }) => {
       stravaTokenProxy({
         clientId: env.VITE_STRAVA_CLIENT_ID,
         clientSecret: env.STRAVA_CLIENT_SECRET,
+      }),
+      coachingMessageProxy({
+        supabaseUrl: env.VITE_SUPABASE_URL,
+        supabaseKey: env.VITE_SUPABASE_ANON_KEY,
+        anthropicKey: env.ANTHROPIC_API_KEY,
       }),
       VitePWA({
         registerType: 'autoUpdate',
