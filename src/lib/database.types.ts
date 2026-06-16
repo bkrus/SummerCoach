@@ -146,6 +146,7 @@ export interface Database {
           leg_fatigue: number | null
           energy_level: number | null
           sleep_hours: number | null
+          pain_areas: string[] | null
           notes: string | null
           created_at: string
         }
@@ -155,6 +156,7 @@ export interface Database {
           leg_fatigue?: number | null
           energy_level?: number | null
           sleep_hours?: number | null
+          pain_areas?: string[] | null
           notes?: string | null
           created_at?: string
         }
@@ -164,6 +166,7 @@ export interface Database {
           leg_fatigue?: number | null
           energy_level?: number | null
           sleep_hours?: number | null
+          pain_areas?: string[] | null
           notes?: string | null
           created_at?: string
         }
