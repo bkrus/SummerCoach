@@ -17,6 +17,20 @@ export interface Database {
           strava_refresh_token: string | null
           strava_token_expires_at: string | null
           strava_profile_url: string | null
+          target_weekly_mileage: number
+          current_weekly_mileage: number
+          team_practice_days: string[]
+          years_running: number | null
+          injury_history: string | null
+          focus_areas: string[] | null
+          lifting_days_per_week: number
+          exercises_to_avoid: string | null
+          gym_equipment: string[] | null
+          coach_message_style: string
+          coach_motivation_style: string
+          morning_reminder_time: string
+          other_goals: string | null
+          coach_notes: string | null
           created_at: string
         }
         Insert: {
@@ -31,6 +45,20 @@ export interface Database {
           strava_refresh_token?: string | null
           strava_token_expires_at?: string | null
           strava_profile_url?: string | null
+          target_weekly_mileage?: number
+          current_weekly_mileage?: number
+          team_practice_days?: string[]
+          years_running?: number | null
+          injury_history?: string | null
+          focus_areas?: string[] | null
+          lifting_days_per_week?: number
+          exercises_to_avoid?: string | null
+          gym_equipment?: string[] | null
+          coach_message_style?: string
+          coach_motivation_style?: string
+          morning_reminder_time?: string
+          other_goals?: string | null
+          coach_notes?: string | null
           created_at?: string
         }
         Update: {
@@ -45,6 +73,20 @@ export interface Database {
           strava_refresh_token?: string | null
           strava_token_expires_at?: string | null
           strava_profile_url?: string | null
+          target_weekly_mileage?: number
+          current_weekly_mileage?: number
+          team_practice_days?: string[]
+          years_running?: number | null
+          injury_history?: string | null
+          focus_areas?: string[] | null
+          lifting_days_per_week?: number
+          exercises_to_avoid?: string | null
+          gym_equipment?: string[] | null
+          coach_message_style?: string
+          coach_motivation_style?: string
+          morning_reminder_time?: string
+          other_goals?: string | null
+          coach_notes?: string | null
           created_at?: string
         }
         Relationships: []

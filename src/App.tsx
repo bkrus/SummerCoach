@@ -5,6 +5,7 @@ import RunningPlan from './pages/RunningPlan'
 import LiftingPlan from './pages/LiftingPlan'
 import CheckIn from './pages/CheckIn'
 import Progress from './pages/Progress'
+import Profile from './pages/Profile'
 import StravaCallback from './pages/StravaCallback'
 
 function AppLayout() {
@@ -17,6 +18,7 @@ function AppLayout() {
           <Route path="/lifting" element={<LiftingPlan />} />
           <Route path="/checkin" element={<CheckIn />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </main>
       <BottomNav />

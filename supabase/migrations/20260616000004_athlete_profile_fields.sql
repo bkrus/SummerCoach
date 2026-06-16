@@ -1,0 +1,14 @@
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS target_weekly_mileage integer DEFAULT 50;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS current_weekly_mileage integer DEFAULT 25;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS team_practice_days text[] DEFAULT '{tuesday,thursday,saturday}';
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS years_running integer;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS injury_history text;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS focus_areas text[];
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS lifting_days_per_week integer DEFAULT 4;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS exercises_to_avoid text;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS gym_equipment text[];
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS coach_message_style text DEFAULT 'balanced';
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS coach_motivation_style text DEFAULT 'balanced';
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS morning_reminder_time text DEFAULT '07:00';
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS other_goals text;
+ALTER TABLE athlete ADD COLUMN IF NOT EXISTS coach_notes text;
