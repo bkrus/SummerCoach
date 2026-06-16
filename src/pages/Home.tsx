@@ -10,6 +10,16 @@ interface CoachingResponse {
   readiness: ReadinessStatus | null
   generatedAt: string
   weeklyMiles: number
+  hasRunToday: boolean
+  hasLiftedToday: boolean
+  todayRunSummary: {
+    name: string
+    distance_miles: number
+    duration_minutes: number
+    average_heartrate: number | null
+    effort_level: string | null
+  } | null
+  todayLiftSummary: { name: string; duration_minutes: number } | null
 }
 
 const today = new Date().toLocaleDateString('en-US', {
@@ -182,7 +192,13 @@ export default function Home() {
             <div className="w-6 h-6 rounded-full bg-coach-600 flex items-center justify-center text-xs font-bold text-white">
               AI
             </div>
-            <span className="text-sm font-semibold text-coach-300">Coach Message</span>
+            <span className="text-sm font-semibold text-coach-300">
+              {coaching?.hasRunToday && coaching?.hasLiftedToday
+                ? "Today's Training Summary"
+                : coaching?.hasRunToday
+                ? 'Run Analysis + Today\'s Plan'
+                : 'Today\'s Coaching'}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -269,6 +285,31 @@ export default function Home() {
           <p className="text-xs text-zinc-500 mt-0.5">Goal PR</p>
         </div>
       </div>
+
+      {/* Today's activity status */}
+      {coaching && (
+        <div className="flex flex-wrap gap-2 items-center">
+          {coaching.hasRunToday && coaching.todayRunSummary && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-950/60 border border-green-800/40 text-xs font-medium text-green-400">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Run logged — {coaching.todayRunSummary.distance_miles} mi
+            </span>
+          )}
+          {coaching.hasLiftedToday && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-950/60 border border-green-800/40 text-xs font-medium text-green-400">
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Lift logged
+            </span>
+          )}
+          {!coaching.hasRunToday && !coaching.hasLiftedToday && (
+            <span className="text-xs text-zinc-600">No activities logged today</span>
+          )}
+        </div>
+      )}
 
       {/* Upcoming */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">

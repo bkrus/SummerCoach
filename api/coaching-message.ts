@@ -3,11 +3,28 @@ import { createClient } from '@supabase/supabase-js'
 
 type ReadinessStatus = 'green' | 'yellow' | 'red'
 
+type TodayRunSummary = {
+  name: string
+  distance_miles: number
+  duration_minutes: number
+  average_heartrate: number | null
+  effort_level: string | null
+}
+
+type TodayLiftSummary = {
+  name: string
+  duration_minutes: number
+}
+
 export interface CoachingResponse {
   message: string
   readiness: ReadinessStatus | null
   generatedAt: string
   weeklyMiles: number
+  hasRunToday: boolean
+  hasLiftedToday: boolean
+  todayRunSummary: TodayRunSummary | null
+  todayLiftSummary: TodayLiftSummary | null
 }
 
 function calcReadiness(leg: number, energy: number, sleepHours: number): ReadinessStatus {
@@ -120,6 +137,29 @@ Readiness rules:
 - Yellow: drop intensity one level, reduce volume 20%
 - Red: easy shakeout or rest only, no lifting heavy
 
+DAILY ACTIVITY AWARENESS — CRITICAL RULES:
+You will be told what activities have already happened today in TODAY'S COMPLETED ACTIVITIES. Follow these rules strictly:
+
+1. IF a run has already happened today:
+   - NEVER suggest another run
+   - Analyze the completed run: comment on distance, effort level, HR, and what it means for recovery and tomorrow's training
+   - Recommend whether to lift based on run effort: hard effort → upper body only or rest from lifting; moderate effort → upper body safe, lower body optional; easy effort → any lift type acceptable
+
+2. IF no run has happened today:
+   - Recommend today's run with specific type, distance, and target pace based on readiness and training context
+   - Factor in whether it is a team practice day
+
+3. IF lifting has already happened today:
+   - Acknowledge it was completed
+   - Never suggest additional lifting
+
+4. IF both run and lift are complete:
+   - Do not suggest any more training
+   - Give a positive day summary and connect today's training to the goal PR
+   - Preview what tomorrow looks like so the athlete can prepare
+
+5. ALWAYS end with a one-sentence tomorrow preview — what's coming next
+
 ${constraints}
 
 If COACH NOTES are provided and they affect today's plan, explicitly acknowledge them in the message.
@@ -146,7 +186,12 @@ export async function buildCoachingMessage(creds: {
   monday.setUTCDate(now.getUTCDate() - daysFromMonday)
   monday.setUTCHours(0, 0, 0, 0)
 
-  const [athleteRes, checkinRes, activitiesRes, recoveryRes, weeklyRes] = await Promise.all([
+  const todayStart = new Date(now)
+  todayStart.setUTCHours(0, 0, 0, 0)
+  const tomorrowStart = new Date(todayStart)
+  tomorrowStart.setUTCDate(todayStart.getUTCDate() + 1)
+
+  const [athleteRes, checkinRes, activitiesRes, recoveryRes, weeklyRes, todayActivitiesRes] = await Promise.all([
     supabase
       .from('athlete')
       .select(
@@ -160,6 +205,10 @@ export async function buildCoachingMessage(creds: {
     supabase.from('activities').select('name, distance_meters, moving_time_seconds, average_heartrate, effort_level, start_date').gte('start_date', seventyTwoHoursAgo).order('start_date', { ascending: false }),
     supabase.from('recovery_metrics').select('*').order('date', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('activities').select('distance_meters, start_date').gte('start_date', monday.toISOString()).in('sport_type', ['Run', 'TrailRun']),
+    supabase.from('activities')
+      .select('name, sport_type, distance_meters, moving_time_seconds, average_heartrate, effort_level')
+      .gte('start_date', todayStart.toISOString())
+      .lt('start_date', tomorrowStart.toISOString()),
   ])
 
   const athlete = athleteRes.data as AthleteProfile | null
@@ -167,12 +216,52 @@ export async function buildCoachingMessage(creds: {
   const activities = activitiesRes.data ?? []
   const recovery = recoveryRes.data
   const weeklyActivities = weeklyRes.data ?? []
+  const todayActivities = todayActivitiesRes.data ?? []
 
   console.log('[coaching-message] week window:', monday.toISOString(), '→', now.toISOString())
   console.log('[coaching-message] weekly activities:', weeklyActivities.map(a => ({
     date: (a as { start_date?: string }).start_date ?? 'unknown',
     miles: ((a.distance_meters ?? 0) / 1609.34).toFixed(2),
   })))
+
+  // ─── Today's activity detection ─────────────────────────────────────────────
+
+  const todayRuns = todayActivities.filter(
+    a => a.sport_type === 'Run' || a.sport_type === 'TrailRun'
+  )
+  const todayLifts = todayActivities.filter(
+    a => a.sport_type === 'WeightTraining' || a.sport_type === 'Workout'
+  )
+
+  const hasRunToday = todayRuns.length > 0
+  const hasLiftedToday = todayLifts.length > 0
+
+  const firstRun = todayRuns[0] ?? null
+  const todayRunSummary = firstRun
+    ? {
+        name: firstRun.name,
+        distance_miles: parseFloat(((firstRun.distance_meters ?? 0) / 1609.34).toFixed(1)),
+        duration_minutes: Math.round((firstRun.moving_time_seconds ?? 0) / 60),
+        average_heartrate: firstRun.average_heartrate ?? null,
+        effort_level: firstRun.effort_level ?? null,
+      }
+    : null
+
+  const firstLift = todayLifts[0] ?? null
+  const todayLiftSummary = firstLift
+    ? {
+        name: firstLift.name,
+        duration_minutes: Math.round((firstLift.moving_time_seconds ?? 0) / 60),
+      }
+    : null
+
+  console.log('[coaching-message] today window:', todayStart.toISOString(), '→', tomorrowStart.toISOString())
+  console.log('[coaching-message] today detection:', {
+    hasRunToday,
+    hasLiftedToday,
+    todayRunSummary,
+    todayLiftSummary,
+  })
 
   const readiness: ReadinessStatus | null =
     checkin?.leg_fatigue && checkin.energy_level && checkin.sleep_hours
@@ -221,6 +310,22 @@ export async function buildCoachingMessage(creds: {
   } else {
     parts.push("TODAY'S CHECK-IN: Not yet submitted — assume moderate readiness")
   }
+
+  const completedParts: string[] = []
+  if (todayRunSummary) {
+    completedParts.push(
+      `TODAY'S COMPLETED RUN: ${todayRunSummary.name} — ${todayRunSummary.distance_miles} miles, ${todayRunSummary.duration_minutes} min, avg HR ${todayRunSummary.average_heartrate ?? '—'}, effort: ${todayRunSummary.effort_level ?? '—'}`
+    )
+  }
+  if (todayLiftSummary) {
+    completedParts.push(
+      `TODAY'S COMPLETED LIFT: ${todayLiftSummary.name} — ${todayLiftSummary.duration_minutes} min`
+    )
+  }
+  if (completedParts.length === 0) {
+    completedParts.push("TODAY'S COMPLETED ACTIVITIES: None yet")
+  }
+  parts.push(completedParts.join('\n'))
 
   if (activities.length > 0) {
     const actLines = activities
@@ -278,6 +383,10 @@ export async function buildCoachingMessage(creds: {
     readiness,
     generatedAt: new Date().toISOString(),
     weeklyMiles: parseFloat(weeklyMiles.toFixed(1)),
+    hasRunToday,
+    hasLiftedToday,
+    todayRunSummary,
+    todayLiftSummary,
   }
 }
 
