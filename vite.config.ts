@@ -21,6 +21,12 @@ type StravaSyncConfig = {
   stravaClientSecret: string
 }
 
+type ExerciseSuggestConfig = {
+  supabaseUrl: string
+  supabaseKey: string
+  anthropicKey: string
+}
+
 function stravaSyncProxy(config: StravaSyncConfig): Plugin {
   return {
     name: 'strava-sync-proxy',
@@ -67,6 +73,43 @@ function coachingMessageProxy(config: CoachingProxyConfig): Plugin {
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ error: err.message }))
           })
+      })
+    },
+  }
+}
+
+function exerciseSuggestProxy(config: ExerciseSuggestConfig): Plugin {
+  return {
+    name: 'exercise-suggest-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/exercises/suggest', (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end()
+          return
+        }
+        const chunks: Buffer[] = []
+        req.on('data', (chunk: Buffer) => chunks.push(chunk))
+        req.on('end', () => {
+          const body = JSON.parse(Buffer.concat(chunks).toString()) as {
+            day_type: string
+            athlete_context: string
+            save?: boolean
+          }
+          import('./api/exercises/suggest.js')
+            .then(mod => mod.suggestExercises(body, config))
+            .then(result => {
+              res.statusCode = 200
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify(result))
+            })
+            .catch((err: Error) => {
+              console.error('[exercise-suggest-proxy]', err)
+              res.statusCode = 500
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: err.message }))
+            })
+        })
       })
     },
   }
@@ -168,6 +211,11 @@ export default defineConfig(({ mode }) => {
         supabaseKey: env.VITE_SUPABASE_ANON_KEY,
         stravaClientId: env.VITE_STRAVA_CLIENT_ID,
         stravaClientSecret: env.STRAVA_CLIENT_SECRET,
+      }),
+      exerciseSuggestProxy({
+        supabaseUrl: env.VITE_SUPABASE_URL,
+        supabaseKey: env.VITE_SUPABASE_ANON_KEY,
+        anthropicKey: env.ANTHROPIC_API_KEY,
       }),
       VitePWA({
         registerType: 'autoUpdate',

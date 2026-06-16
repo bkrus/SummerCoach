@@ -214,6 +214,60 @@ export interface Database {
         }
         Relationships: []
       }
+      exercises: {
+        Row: {
+          id: string
+          name: string
+          equipment: string[]
+          day_type: string
+          sort_order: number
+          sets: number
+          reps: string
+          form_cues: string[]
+          common_mistakes: string[]
+          running_benefit: string
+          youtube_url: string | null
+          notes: string | null
+          is_ai_suggested: boolean
+          ai_reasoning: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          equipment?: string[]
+          day_type: string
+          sort_order?: number
+          sets: number
+          reps: string
+          form_cues?: string[]
+          common_mistakes?: string[]
+          running_benefit: string
+          youtube_url?: string | null
+          notes?: string | null
+          is_ai_suggested?: boolean
+          ai_reasoning?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          equipment?: string[]
+          day_type?: string
+          sort_order?: number
+          sets?: number
+          reps?: string
+          form_cues?: string[]
+          common_mistakes?: string[]
+          running_benefit?: string
+          youtube_url?: string | null
+          notes?: string | null
+          is_ai_suggested?: boolean
+          ai_reasoning?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       workout_log: {
         Row: {
           id: string
