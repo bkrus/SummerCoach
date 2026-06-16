@@ -140,10 +140,11 @@ export async function buildCoachingMessage(creds: {
   const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
 
   const now = new Date()
-  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1
+  const utcDay = now.getUTCDay() // 0=Sun, 1=Mon … 6=Sat
+  const daysFromMonday = utcDay === 0 ? 6 : utcDay - 1
   const monday = new Date(now)
-  monday.setDate(now.getDate() - dayOfWeek)
-  monday.setHours(0, 0, 0, 0)
+  monday.setUTCDate(now.getUTCDate() - daysFromMonday)
+  monday.setUTCHours(0, 0, 0, 0)
 
   const [athleteRes, checkinRes, activitiesRes, recoveryRes, weeklyRes] = await Promise.all([
     supabase
@@ -158,7 +159,7 @@ export async function buildCoachingMessage(creds: {
     supabase.from('checkins').select('leg_fatigue, energy_level, sleep_hours, pain_areas, notes').eq('date', today).maybeSingle(),
     supabase.from('activities').select('name, distance_meters, moving_time_seconds, average_heartrate, effort_level, start_date').gte('start_date', seventyTwoHoursAgo).order('start_date', { ascending: false }),
     supabase.from('recovery_metrics').select('*').order('date', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('activities').select('distance_meters').gte('start_date', monday.toISOString()),
+    supabase.from('activities').select('distance_meters, start_date').gte('start_date', monday.toISOString()),
   ])
 
   const athlete = athleteRes.data as AthleteProfile | null
@@ -166,6 +167,12 @@ export async function buildCoachingMessage(creds: {
   const activities = activitiesRes.data ?? []
   const recovery = recoveryRes.data
   const weeklyActivities = weeklyRes.data ?? []
+
+  console.log('[coaching-message] week window:', monday.toISOString(), '→', now.toISOString())
+  console.log('[coaching-message] weekly activities:', weeklyActivities.map(a => ({
+    date: (a as { start_date?: string }).start_date ?? 'unknown',
+    miles: ((a.distance_meters ?? 0) / 1609.34).toFixed(2),
+  })))
 
   const readiness: ReadinessStatus | null =
     checkin?.leg_fatigue && checkin.energy_level && checkin.sleep_hours

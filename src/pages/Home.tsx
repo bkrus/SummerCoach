@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAthlete } from '../hooks/useAthlete'
 import { buildStravaAuthUrl } from '../lib/strava'
+import { supabase } from '../lib/supabase'
 
 type ReadinessStatus = 'green' | 'yellow' | 'red'
 
@@ -48,9 +49,30 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
+function fmtSecs(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60)
+  const s = String(totalSeconds % 60).padStart(2, '0')
+  return `${m}:${s}`
+}
+
 export default function Home() {
   const { athlete, loading } = useAthlete()
   const firstName = athlete?.name.split(' ')[0] ?? 'Athlete'
+
+  const [prData, setPrData] = useState<{ current: number | null; goal: number | null }>({
+    current: null,
+    goal: null,
+  })
+
+  const fetchPR = useCallback(async () => {
+    const { data } = await supabase
+      .from('athlete')
+      .select('current_pr_seconds, goal_pr_seconds')
+      .maybeSingle()
+    if (data) {
+      setPrData({ current: data.current_pr_seconds, goal: data.goal_pr_seconds })
+    }
+  }, [])
 
   const [coaching, setCoaching] = useState<CoachingResponse | null>(null)
   const [coachingLoading, setCoachingLoading] = useState(true)
@@ -73,7 +95,8 @@ export default function Home() {
 
   useEffect(() => {
     void fetchCoaching()
-  }, [fetchCoaching])
+    void fetchPR()
+  }, [fetchCoaching, fetchPR])
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-5">
@@ -132,7 +155,7 @@ export default function Home() {
             <span className="text-sm font-semibold text-coach-300">Coach Message</span>
           </div>
           <button
-            onClick={() => void fetchCoaching()}
+            onClick={() => { void fetchCoaching(); void fetchPR() }}
             disabled={coachingLoading}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40 transition-colors active:scale-95"
           >
@@ -187,11 +210,15 @@ export default function Home() {
           <p className="text-xs text-zinc-500 mt-0.5">Miles this week</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
-          <p className="text-xl font-bold text-coach-400">17:35</p>
+          <p className="text-xl font-bold text-coach-400">
+            {prData.current != null ? fmtSecs(prData.current) : '—'}
+          </p>
           <p className="text-xs text-zinc-500 mt-0.5">Current PR</p>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-center">
-          <p className="text-xl font-bold text-coach-400">16:00</p>
+          <p className="text-xl font-bold text-coach-400">
+            {prData.goal != null ? fmtSecs(prData.goal) : '—'}
+          </p>
           <p className="text-xs text-zinc-500 mt-0.5">Goal PR</p>
         </div>
       </div>
