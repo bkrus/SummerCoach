@@ -6,11 +6,11 @@ import type { IncomingMessage, ServerResponse } from 'http'
 type StravaProxyConfig = {
   clientId: string
   clientSecret: string
-  redirectUri: string
 }
 
 // Dev-only middleware: exchanges the Strava auth code for tokens server-side
 // so STRAVA_CLIENT_SECRET never reaches the browser.
+// In production, api/strava/token.ts (Vercel serverless function) handles this.
 function stravaTokenProxy(config: StravaProxyConfig): Plugin {
   return {
     name: 'strava-token-proxy',
@@ -46,10 +46,15 @@ async function handleTokenExchange(
 
   const { code } = JSON.parse(raw) as { code: string }
 
+  // Derive redirect_uri from the browser's Origin header — matches what
+  // buildStravaAuthUrl() sends, and works without a hardcoded env var.
+  const origin = req.headers.origin ?? 'http://localhost:5173'
+  const redirectUri = `${origin}/auth/strava/callback`
+
   const payload = {
     client_id: config.clientId,
     client_secret: config.clientSecret,
-    redirect_uri: config.redirectUri,
+    redirect_uri: redirectUri,
     code,
     grant_type: 'authorization_code',
   }
@@ -88,7 +93,6 @@ export default defineConfig(({ mode }) => {
       stravaTokenProxy({
         clientId: env.VITE_STRAVA_CLIENT_ID,
         clientSecret: env.STRAVA_CLIENT_SECRET,
-        redirectUri: env.VITE_STRAVA_REDIRECT_URI,
       }),
       VitePWA({
         registerType: 'autoUpdate',

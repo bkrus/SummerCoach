@@ -20,7 +20,8 @@ export function classifyEffort(avgHr: number | null, maxHr: number): 'easy' | 'm
 
 export function buildStravaAuthUrl(): string {
   const clientId = import.meta.env.VITE_STRAVA_CLIENT_ID
-  const redirectUri = import.meta.env.VITE_STRAVA_REDIRECT_URI
+  // Derived at runtime so dev (localhost) and prod (summer-coach.vercel.app) both work.
+  const redirectUri = `${window.location.origin}/auth/strava/callback`
 
   const params = new URLSearchParams({
     client_id: clientId,
