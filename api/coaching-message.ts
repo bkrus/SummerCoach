@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '../src/lib/database.types'
 
 type ReadinessStatus = 'green' | 'yellow' | 'red'
 
@@ -51,7 +50,7 @@ export async function buildCoachingMessage(creds: {
   supabaseKey: string
   anthropicKey: string
 }): Promise<CoachingResponse> {
-  const supabase = createClient<Database>(creds.supabaseUrl, creds.supabaseKey)
+  const supabase = createClient(creds.supabaseUrl, creds.supabaseKey)
 
   const today = new Date().toISOString().split('T')[0]
   const seventyTwoHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
