@@ -93,6 +93,31 @@ export default function Home() {
     }
   }, [])
 
+  const [syncing, setSyncing] = useState(false)
+  const [syncToast, setSyncToast] = useState<string | null>(null)
+
+  const syncStrava = useCallback(async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/strava/sync', { method: 'POST' })
+      const data = await res.json() as { newCount?: number; error?: string }
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      const label =
+        data.newCount === 0
+          ? 'Already up to date'
+          : `Synced ${data.newCount} new activit${data.newCount === 1 ? 'y' : 'ies'}`
+      setSyncToast(label)
+      setTimeout(() => setSyncToast(null), 3500)
+      void fetchCoaching()
+      void fetchPR()
+    } catch (err) {
+      setSyncToast(`Sync failed: ${(err as Error).message}`)
+      setTimeout(() => setSyncToast(null), 4000)
+    } finally {
+      setSyncing(false)
+    }
+  }, [fetchCoaching, fetchPR])
+
   useEffect(() => {
     void fetchCoaching()
     void fetchPR()
@@ -100,6 +125,11 @@ export default function Home() {
 
   return (
     <div className="px-4 pt-6 pb-4 space-y-5">
+      {syncToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-coach-700 border border-coach-500 text-white text-sm font-medium px-5 py-3 rounded-2xl shadow-lg animate-slide-in max-w-xs w-[calc(100%-2rem)] text-center">
+          {syncToast}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -154,21 +184,38 @@ export default function Home() {
             </div>
             <span className="text-sm font-semibold text-coach-300">Coach Message</span>
           </div>
-          <button
-            onClick={() => { void fetchCoaching(); void fetchPR() }}
-            disabled={coachingLoading}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40 transition-colors active:scale-95"
-          >
-            <svg
-              className={`w-3.5 h-3.5 ${coachingLoading ? 'animate-spin' : ''}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => void syncStrava()}
+              disabled={syncing || coachingLoading}
+              className="flex items-center gap-1.5 text-xs text-[#FC4C02]/80 hover:text-[#FC4C02] disabled:opacity-40 transition-colors active:scale-95"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
+              <svg
+                className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              {syncing ? 'Syncing…' : 'Sync Strava'}
+            </button>
+            <button
+              onClick={() => { void fetchCoaching(); void fetchPR() }}
+              disabled={coachingLoading}
+              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40 transition-colors active:scale-95"
+            >
+              <svg
+                className={`w-3.5 h-3.5 ${coachingLoading ? 'animate-spin' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Content */}

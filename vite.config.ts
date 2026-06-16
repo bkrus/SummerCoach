@@ -14,6 +14,41 @@ type CoachingProxyConfig = {
   anthropicKey: string
 }
 
+type StravaSyncConfig = {
+  supabaseUrl: string
+  supabaseKey: string
+  stravaClientId: string
+  stravaClientSecret: string
+}
+
+function stravaSyncProxy(config: StravaSyncConfig): Plugin {
+  return {
+    name: 'strava-sync-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/strava/sync', (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end()
+          return
+        }
+        import('./api/strava/sync.js')
+          .then(mod => mod.syncStravaActivities(config))
+          .then(result => {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(result))
+          })
+          .catch((err: Error) => {
+            console.error('[strava-sync-proxy]', err)
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err.message }))
+          })
+      })
+    },
+  }
+}
+
 function coachingMessageProxy(config: CoachingProxyConfig): Plugin {
   return {
     name: 'coaching-message-proxy',
@@ -127,6 +162,12 @@ export default defineConfig(({ mode }) => {
         supabaseUrl: env.VITE_SUPABASE_URL,
         supabaseKey: env.VITE_SUPABASE_ANON_KEY,
         anthropicKey: env.ANTHROPIC_API_KEY,
+      }),
+      stravaSyncProxy({
+        supabaseUrl: env.VITE_SUPABASE_URL,
+        supabaseKey: env.VITE_SUPABASE_ANON_KEY,
+        stravaClientId: env.VITE_STRAVA_CLIENT_ID,
+        stravaClientSecret: env.STRAVA_CLIENT_SECRET,
       }),
       VitePWA({
         registerType: 'autoUpdate',

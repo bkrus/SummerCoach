@@ -159,7 +159,7 @@ export async function buildCoachingMessage(creds: {
     supabase.from('checkins').select('leg_fatigue, energy_level, sleep_hours, pain_areas, notes').eq('date', today).maybeSingle(),
     supabase.from('activities').select('name, distance_meters, moving_time_seconds, average_heartrate, effort_level, start_date').gte('start_date', seventyTwoHoursAgo).order('start_date', { ascending: false }),
     supabase.from('recovery_metrics').select('*').order('date', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('activities').select('distance_meters, start_date').gte('start_date', monday.toISOString()),
+    supabase.from('activities').select('distance_meters, start_date').gte('start_date', monday.toISOString()).in('sport_type', ['Run', 'TrailRun']),
   ])
 
   const athlete = athleteRes.data as AthleteProfile | null
