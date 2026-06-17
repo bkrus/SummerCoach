@@ -512,7 +512,12 @@ export default function LiftingPlan() {
                   href={modal.ex.youtube_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl bg-red-600/10 border border-red-600/30 text-sm font-semibold text-red-400 active:bg-red-600/20 transition-colors"
+                  className="relative overflow-hidden flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-blue-500/40 text-sm font-semibold text-blue-300 active:opacity-80 transition-opacity"
+                  style={{
+                    background: 'linear-gradient(105deg, #1e3a5f 0%, #1d4ed8 40%, #60a5fa 50%, #1d4ed8 60%, #1e3a5f 100%)',
+                    backgroundSize: '300% auto',
+                    animation: 'shimmer 2.4s linear infinite',
+                  }}
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
@@ -586,7 +591,7 @@ function ExerciseCard({
             {sets}×{reps}
           </span>
           {youtubeUrl && (
-            <svg className="w-3.5 h-3.5 text-red-500/70 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-3.5 h-3.5 text-blue-500/70 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
             </svg>
           )}

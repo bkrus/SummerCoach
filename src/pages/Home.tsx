@@ -28,6 +28,13 @@ const today = new Date().toLocaleDateString('en-US', {
   day: 'numeric',
 })
 
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
 const READINESS_CFG: Record<
   ReadinessStatus,
   { label: string; bg: string; border: string; text: string; dot: string }
@@ -145,7 +152,7 @@ export default function Home() {
         <div className="min-w-0">
           <p className="text-sm text-coach-400 font-medium">{today}</p>
           <h1 className="text-2xl font-bold text-white mt-0.5 truncate">
-            Good morning, {firstName}
+            {getGreeting()}, {firstName}
           </h1>
         </div>
         {athlete?.strava_profile_url ? (

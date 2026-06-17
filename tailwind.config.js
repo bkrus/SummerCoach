@@ -26,9 +26,14 @@ export default {
           '0%': { opacity: '0', transform: 'translateX(24px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% center' },
+          '100%': { backgroundPosition: '200% center' },
+        },
       },
       animation: {
         'slide-in': 'slideIn 0.25s ease-out',
+        shimmer: 'shimmer 2.4s linear infinite',
       },
     },
   },
