@@ -638,12 +638,18 @@ type TimerAction =
   | { type: 'RESET' }
   | { type: 'TICK' }
   | { type: 'CLEAR_FLASH' }
+  | { type: 'ADJUST_TIME'; delta: number }
 
 function timerReducer(state: TimerState, action: TimerAction): TimerState {
   switch (action.type) {
     case 'START':      return { ...state, isRunning: true }
     case 'PAUSE':      return { ...state, isRunning: false }
     case 'CLEAR_FLASH': return { ...state, flash: false }
+    case 'ADJUST_TIME': {
+      const newRemaining = Math.max(5, state.remainingSeconds + action.delta)
+      const newTotal = Math.max(5, state.totalSeconds + action.delta)
+      return { ...state, remainingSeconds: newRemaining, totalSeconds: newTotal }
+    }
     case 'RESET':
       return {
         ...state,
@@ -753,8 +759,17 @@ function ExerciseTimer({ sets, reps }: { sets: number; reps: string }) {
     <div className={`rounded-2xl border p-5 mb-4 transition-colors duration-300 ${
       state.flash ? 'bg-green-950/60 border-green-700/50' : 'bg-zinc-800/50 border-zinc-700/40'
     }`}>
-      {/* Progress ring */}
-      <div className="flex justify-center mb-3">
+      {/* Progress ring with flanking ±5s buttons */}
+      <div className="flex items-center justify-center gap-3 mb-3">
+        {/* −5s */}
+        <button
+          onClick={() => dispatch({ type: 'ADJUST_TIME', delta: -5 })}
+          className="w-11 h-11 rounded-full border border-coach-700/60 bg-coach-950/60 text-coach-400 text-xs font-bold active:scale-95 transition-transform flex items-center justify-center"
+        >
+          −5s
+        </button>
+
+        {/* Ring */}
         <div className="relative">
           <svg width="140" height="140" viewBox="0 0 140 140">
             <circle cx="70" cy="70" r={TIMER_RADIUS} fill="none" stroke="#27272a" strokeWidth="8" />
@@ -777,6 +792,14 @@ function ExerciseTimer({ sets, reps }: { sets: number; reps: string }) {
             </p>
           </div>
         </div>
+
+        {/* +5s */}
+        <button
+          onClick={() => dispatch({ type: 'ADJUST_TIME', delta: 5 })}
+          className="w-11 h-11 rounded-full border border-coach-700/60 bg-coach-950/60 text-coach-400 text-xs font-bold active:scale-95 transition-transform flex items-center justify-center"
+        >
+          +5s
+        </button>
       </div>
 
       {/* Set + side label */}
