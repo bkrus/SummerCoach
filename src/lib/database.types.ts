@@ -32,6 +32,20 @@ export interface Database {
           other_goals: string | null
           coach_notes: string | null
           created_at: string
+          height_inches: number | null
+          weight_lbs: number | null
+          resting_hr: number | null
+          max_hr: number | null
+          vo2_max: number | null
+          pr_400m_seconds: number | null
+          pr_800m_seconds: number | null
+          pr_1600m_seconds: number | null
+          pr_3200m_seconds: number | null
+          pr_5k_seconds: number | null
+          pr_10k_seconds: number | null
+          longest_run_miles: number | null
+          highest_weekly_mileage: number | null
+          years_weight_training: number | null
         }
         Insert: {
           id?: string
@@ -60,6 +74,20 @@ export interface Database {
           other_goals?: string | null
           coach_notes?: string | null
           created_at?: string
+          height_inches?: number | null
+          weight_lbs?: number | null
+          resting_hr?: number | null
+          max_hr?: number | null
+          vo2_max?: number | null
+          pr_400m_seconds?: number | null
+          pr_800m_seconds?: number | null
+          pr_1600m_seconds?: number | null
+          pr_3200m_seconds?: number | null
+          pr_5k_seconds?: number | null
+          pr_10k_seconds?: number | null
+          longest_run_miles?: number | null
+          highest_weekly_mileage?: number | null
+          years_weight_training?: number | null
         }
         Update: {
           id?: string
@@ -88,6 +116,20 @@ export interface Database {
           other_goals?: string | null
           coach_notes?: string | null
           created_at?: string
+          height_inches?: number | null
+          weight_lbs?: number | null
+          resting_hr?: number | null
+          max_hr?: number | null
+          vo2_max?: number | null
+          pr_400m_seconds?: number | null
+          pr_800m_seconds?: number | null
+          pr_1600m_seconds?: number | null
+          pr_3200m_seconds?: number | null
+          pr_5k_seconds?: number | null
+          pr_10k_seconds?: number | null
+          longest_run_miles?: number | null
+          highest_weekly_mileage?: number | null
+          years_weight_training?: number | null
         }
         Relationships: []
       }

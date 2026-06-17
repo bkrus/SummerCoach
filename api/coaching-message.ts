@@ -44,6 +44,33 @@ function fmtMiles(meters: number | null): string {
   return `${(meters / 1609.34).toFixed(2)} mi`
 }
 
+function fmtHeight(inches: number): string {
+  return `${Math.floor(inches / 12)}'${inches % 12}"`
+}
+
+function fmtPace(secsPerMile: number): string {
+  return fmtSecs(Math.round(secsPerMile))
+}
+
+function calcHRZones(restingHR: number, maxHR: number): string {
+  const hrr = maxHR - restingHR
+  const z = (lo: number, hi: number) =>
+    `${Math.round(restingHR + hrr * lo)}–${Math.round(restingHR + hrr * hi)}`
+  return `Z1 ${z(0.50, 0.60)} | Z2 ${z(0.60, 0.70)} | Z3 ${z(0.70, 0.80)} | Z4 ${z(0.80, 0.90)} | Z5 ${z(0.90, 1.00)} bpm`
+}
+
+// Jack Daniels-based pace factors from 5K PR
+function derivePaces(pr5kSeconds: number): string {
+  const secPerMile = pr5kSeconds / 3.10686
+  return [
+    `Easy: ${fmtPace(secPerMile * 1.30)}/mi`,
+    `Marathon: ${fmtPace(secPerMile * 1.15)}/mi`,
+    `Threshold: ${fmtPace(secPerMile * 1.08)}/mi`,
+    `Interval: ${fmtPace(secPerMile * 0.98)}/mi`,
+    `Rep: ${fmtPace(secPerMile * 0.92)}/mi`,
+  ].join(' | ')
+}
+
 // ─── Athlete profile shape from DB select ────────────────────────────────────
 
 type AthleteProfile = {
@@ -64,6 +91,22 @@ type AthleteProfile = {
   coach_motivation_style: string
   other_goals: string | null
   coach_notes: string | null
+  // Physiological data
+  height_inches: number | null
+  weight_lbs: number | null
+  resting_hr: number | null
+  max_hr: number | null
+  vo2_max: number | null
+  years_weight_training: number | null
+  longest_run_miles: number | null
+  highest_weekly_mileage: number | null
+  // Personal records
+  pr_400m_seconds: number | null
+  pr_800m_seconds: number | null
+  pr_1600m_seconds: number | null
+  pr_3200m_seconds: number | null
+  pr_5k_seconds: number | null
+  pr_10k_seconds: number | null
 }
 
 // ─── Dynamic system prompt ────────────────────────────────────────────────────
@@ -115,6 +158,38 @@ function buildSystemPrompt(athlete: AthleteProfile | null): string {
   const equipment = athlete?.gym_equipment ?? []
   if (equipment.length > 0) {
     lines.push(`Only recommend exercises using this available equipment: ${equipment.join(', ')}.`)
+  }
+
+  // HR zones — only emit when both values present
+  if (athlete?.resting_hr && athlete?.max_hr) {
+    lines.push(
+      `Training HR zones (Karvonen): ${calcHRZones(athlete.resting_hr, athlete.max_hr)}. Prescribe runs with a specific target zone, not just a vague effort level.`
+    )
+  } else if (athlete?.max_hr) {
+    lines.push(
+      `Max HR: ${athlete.max_hr} bpm. Use percentage of max HR for workout prescriptions when referencing heart rate.`
+    )
+  }
+
+  // Training paces from 5K PR
+  const pr5k = athlete?.pr_5k_seconds ?? athlete?.current_pr_seconds
+  if (pr5k) {
+    lines.push(
+      `Derived training paces from 5K PR (${fmtSecs(pr5k)}): ${derivePaces(pr5k)}. Use these specific paces when prescribing run workouts.`
+    )
+  }
+
+  // Weight training experience
+  if (athlete?.years_weight_training != null) {
+    const exp =
+      athlete.years_weight_training === 0
+        ? 'no weight training experience — keep form cues simple and loads conservative'
+        : athlete.years_weight_training === 1
+        ? '1 year weight training experience — still building movement patterns'
+        : athlete.years_weight_training >= 4
+        ? `${athlete.years_weight_training}+ years weight training — can handle complex movements and progressive loading`
+        : `${athlete.years_weight_training} years weight training experience`
+    lines.push(`Lifting background: ${exp}.`)
   }
 
   const constraints = lines.join('\n')
@@ -198,7 +273,11 @@ export async function buildCoachingMessage(creds: {
         'name, current_pr_seconds, goal_pr_seconds, season_start_date, ' +
         'target_weekly_mileage, current_weekly_mileage, team_practice_days, years_running, ' +
         'injury_history, focus_areas, lifting_days_per_week, exercises_to_avoid, ' +
-        'gym_equipment, coach_message_style, coach_motivation_style, other_goals, coach_notes'
+        'gym_equipment, coach_message_style, coach_motivation_style, other_goals, coach_notes, ' +
+        'height_inches, weight_lbs, resting_hr, max_hr, vo2_max, years_weight_training, ' +
+        'longest_run_miles, highest_weekly_mileage, ' +
+        'pr_400m_seconds, pr_800m_seconds, pr_1600m_seconds, pr_3200m_seconds, ' +
+        'pr_5k_seconds, pr_10k_seconds'
       )
       .single(),
     supabase.from('checkins').select('leg_fatigue, energy_level, sleep_hours, pain_areas, notes').eq('date', today).maybeSingle(),
@@ -301,6 +380,45 @@ export async function buildCoachingMessage(creds: {
   if (athlete?.other_goals) profileLines.push(`Other goals: ${athlete.other_goals}`)
   if (profileLines.length > 0) {
     parts.push(`ATHLETE PROFILE:\n${profileLines.join(' | ')}`)
+  }
+
+  // Physiological profile
+  const physioLines: string[] = []
+  if (athlete?.height_inches != null) physioLines.push(`Height: ${fmtHeight(athlete.height_inches)}`)
+  if (athlete?.weight_lbs != null) physioLines.push(`Weight: ${athlete.weight_lbs} lbs`)
+  if (athlete?.resting_hr != null) physioLines.push(`Resting HR: ${athlete.resting_hr} bpm`)
+  if (athlete?.max_hr != null) physioLines.push(`Max HR: ${athlete.max_hr} bpm`)
+  if (athlete?.vo2_max != null) physioLines.push(`VO2 Max: ${athlete.vo2_max} ml/kg/min`)
+  if (athlete?.years_weight_training != null) physioLines.push(`Weight training: ${athlete.years_weight_training === 5 ? '5+' : athlete.years_weight_training} yr`)
+  if (athlete?.longest_run_miles != null) physioLines.push(`Longest run ever: ${athlete.longest_run_miles} mi`)
+  if (athlete?.highest_weekly_mileage != null) physioLines.push(`Peak weekly mileage ever: ${athlete.highest_weekly_mileage} mi/wk`)
+
+  if (physioLines.length > 0) {
+    let physioSection = `PHYSIOLOGICAL PROFILE:\n${physioLines.join(' | ')}`
+
+    if (athlete?.resting_hr && athlete?.max_hr) {
+      physioSection += `\nHR Zones (Karvonen): ${calcHRZones(athlete.resting_hr, athlete.max_hr)}`
+    }
+
+    parts.push(physioSection)
+  }
+
+  // Personal records + derived paces
+  const prLines: string[] = []
+  if (athlete?.pr_400m_seconds) prLines.push(`400m: ${fmtSecs(athlete.pr_400m_seconds)}`)
+  if (athlete?.pr_800m_seconds) prLines.push(`800m: ${fmtSecs(athlete.pr_800m_seconds)}`)
+  if (athlete?.pr_1600m_seconds) prLines.push(`1600m: ${fmtSecs(athlete.pr_1600m_seconds)}`)
+  if (athlete?.pr_3200m_seconds) prLines.push(`3200m: ${fmtSecs(athlete.pr_3200m_seconds)}`)
+  if (athlete?.pr_5k_seconds) prLines.push(`5K: ${fmtSecs(athlete.pr_5k_seconds)}`)
+  if (athlete?.pr_10k_seconds) prLines.push(`10K: ${fmtSecs(athlete.pr_10k_seconds)}`)
+
+  if (prLines.length > 0) {
+    const pr5kForPaces = athlete?.pr_5k_seconds ?? athlete?.current_pr_seconds
+    let prSection = `PERSONAL RECORDS:\n${prLines.join(' | ')}`
+    if (pr5kForPaces) {
+      prSection += `\nDerived training paces: ${derivePaces(pr5kForPaces)}`
+    }
+    parts.push(prSection)
   }
 
   if (checkin) {

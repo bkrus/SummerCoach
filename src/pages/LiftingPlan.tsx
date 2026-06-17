@@ -33,6 +33,7 @@ interface AiSuggestion {
   form_cues: string[]
   common_mistakes: string[]
   running_benefit: string
+  youtube_url?: string | null
   ai_reasoning: string
 }
 
@@ -197,7 +198,7 @@ export default function LiftingPlan() {
         ctx.push(`Recent activities: ${lines.join('; ')}`)
       }
 
-      ctx.push(`Current ${dayType} exercises already in plan: ${exercises.map(e => e.name).join(', ')}`)
+      const currentExerciseNames = exercises.map(e => e.name)
 
       const res = await fetch('/api/exercises/suggest', {
         method: 'POST',
@@ -205,6 +206,7 @@ export default function LiftingPlan() {
         body: JSON.stringify({
           day_type: dayType,
           athlete_context: ctx.join('\n'),
+          current_exercises: currentExerciseNames,
           save: false,
         }),
       })

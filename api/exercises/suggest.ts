@@ -15,10 +15,27 @@ interface SuggestedExercise {
   form_cues: string[]
   common_mistakes: string[]
   running_benefit: string
+  youtube_url?: string | null
   ai_reasoning: string
 }
 
-const SYSTEM_PROMPT = `You are an expert strength coach specializing in exercises for high school cross-country and distance runners. Given a day type and athlete context, suggest exercises that complement their running training without adding excessive fatigue.
+function buildSystemPrompt(currentExercises: string[]): string {
+  const list = currentExercises.length
+    ? currentExercises.map(n => `  - ${n}`).join('\n')
+    : '  (none yet)'
+
+  return `You are an expert strength coach for high school cross country runners. Your job is to suggest 1-2 NEW exercises that COMPLEMENT the existing workout — do not suggest any exercise already in the current workout list.
+
+CURRENT EXERCISES ALREADY IN THE WORKOUT (DO NOT SUGGEST THESE):
+${list}
+
+Requirements for suggestions:
+- Must be different from every exercise listed above
+- Must use equipment available to the athlete (from context)
+- Must NOT involve exercises the athlete should avoid (from context)
+- Should address any weaknesses or focus areas (from context)
+- Should be appropriate for the athlete's readiness level (from context)
+- For a high school XC runner — functional, injury prevention focused
 
 Day types and their focus:
 - lower_a: Heavier lower body (hip hinges, split squats, unilateral work, loaded carries)
@@ -26,22 +43,26 @@ Day types and their focus:
 - upper: Upper body push/pull and core (rows, presses, face pulls, anti-rotation, dead bugs)
 - mobility: Recovery and activation (foam rolling, stretching, glute activation, breathing)
 
-Return a JSON array of exactly 4-6 exercise objects. Each object must have these exact fields:
-- name: string
-- equipment: string[] (empty array if no equipment needed)
+For each suggested exercise provide:
+- name: string (be specific)
+- equipment: string array (empty array if bodyweight)
 - sets: number
-- reps: string (e.g., "10", "8 each leg", "30 seconds", "60 seconds each side")
-- form_cues: string[] (exactly 3-4 cues)
-- common_mistakes: string[] (exactly 2-3 mistakes)
-- running_benefit: string (one sentence on how this helps distance running)
-- ai_reasoning: string (one sentence on why this exercise was chosen for this athlete specifically)
+- reps: string (e.g., "10", "8 each leg", "30 seconds")
+- form_cues: string array (3-5 cues)
+- common_mistakes: string array (2-3 mistakes)
+- running_benefit: string (one sentence connecting to XC performance)
+- youtube_url: string (real YouTube URL for a form tutorial)
+- ai_reasoning: string (why THIS exercise TODAY for THIS athlete)
 
-Return ONLY a valid JSON array — no markdown code blocks, no explanation outside the JSON.`
+Return ONLY a valid JSON array. No markdown, no explanation, just the JSON array.`
+}
 
 export async function suggestExercises(
-  body: { day_type: string; athlete_context: string; save?: boolean },
+  body: { day_type: string; athlete_context: string; current_exercises?: string[]; save?: boolean },
   config: SuggestConfig
 ): Promise<SuggestedExercise[]> {
+  const currentExercises = body.current_exercises ?? []
+
   const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -52,11 +73,11 @@ export async function suggestExercises(
     body: JSON.stringify({
       model: 'claude-opus-4-8',
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(currentExercises),
       messages: [
         {
           role: 'user',
-          content: `Suggest exercises for a ${body.day_type} lifting session.\n\nAthlete context:\n${body.athlete_context}`,
+          content: `Suggest 1-2 new complementary exercises for a ${body.day_type} lifting session.\n\nAthlete context:\n${body.athlete_context}`,
         },
       ],
     }),
@@ -70,7 +91,11 @@ export async function suggestExercises(
   const claudeData = await claudeRes.json() as { content: Array<{ type: string; text: string }> }
   const text = claudeData.content.find(b => b.type === 'text')?.text ?? ''
 
-  const exercises = JSON.parse(text) as SuggestedExercise[]
+  const parsed = JSON.parse(text) as SuggestedExercise[]
+
+  // Filter out any duplicates the model may have returned despite instructions
+  const existingNames = new Set(currentExercises.map(n => n.toLowerCase()))
+  const exercises = parsed.filter(ex => !existingNames.has(ex.name.toLowerCase()))
 
   if (body.save) {
     const supabase = createClient(config.supabaseUrl, config.supabaseKey)
@@ -108,7 +133,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   })
 
   try {
-    const body = JSON.parse(raw) as { day_type: string; athlete_context: string; save?: boolean }
+    const body = JSON.parse(raw) as { day_type: string; athlete_context: string; current_exercises?: string[]; save?: boolean }
 
     const supabaseUrl = process.env.VITE_SUPABASE_URL
     const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
