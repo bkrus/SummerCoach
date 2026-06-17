@@ -508,25 +508,30 @@ export default function LiftingPlan() {
                 </div>
               </div>
 
-              {/* YouTube demo button */}
-              {'youtube_url' in modal.ex && modal.ex.youtube_url && (
-                <a
-                  href={modal.ex.youtube_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative overflow-hidden flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-blue-500/40 text-sm font-semibold text-blue-300 active:opacity-80 transition-opacity"
-                  style={{
-                    background: 'linear-gradient(105deg, #1e3a5f 0%, #1d4ed8 40%, #60a5fa 50%, #1d4ed8 60%, #1e3a5f 100%)',
-                    backgroundSize: '300% auto',
-                    animation: 'shimmer 2.4s linear infinite',
-                  }}
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
-                  </svg>
-                  Watch Demo
-                </a>
-              )}
+              {/* YouTube demo button — stored URL or search fallback */}
+              {(() => {
+                const storedUrl = 'youtube_url' in modal.ex ? modal.ex.youtube_url : null
+                const demoUrl = storedUrl
+                  ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(modal.ex.name + ' exercise demo')}`
+                return (
+                  <a
+                    href={demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative overflow-hidden flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-blue-500/40 text-sm font-semibold text-blue-300 active:opacity-80 transition-opacity"
+                    style={{
+                      background: 'linear-gradient(105deg, #1e3a5f 0%, #1d4ed8 40%, #60a5fa 50%, #1d4ed8 60%, #1e3a5f 100%)',
+                      backgroundSize: '300% auto',
+                      animation: 'shimmer 2.4s linear infinite',
+                    }}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
+                    </svg>
+                    {storedUrl ? 'Watch Demo' : 'Search Demo'}
+                  </a>
+                )
+              })()}
 
             </div>
           </div>
@@ -592,11 +597,9 @@ function ExerciseCard({
           <span className="text-sm font-bold text-coach-400 tabular-nums whitespace-nowrap">
             {sets}×{reps}
           </span>
-          {youtubeUrl && (
-            <svg className="w-3.5 h-3.5 text-blue-500/70 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
-            </svg>
-          )}
+          <svg className={`w-3.5 h-3.5 flex-shrink-0 ${youtubeUrl ? 'text-blue-500/70' : 'text-zinc-600'}`} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
+          </svg>
           <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <polyline points="9 18 15 12 9 6" />
           </svg>
