@@ -42,6 +42,20 @@ interface ModalState {
   isPreview: boolean
 }
 
+// ─── YouTube helpers ──────────────────────────────────────────────────────────
+
+function getYoutubeUrl(name: string, youtubeUrl: string | null | undefined): string {
+  if (youtubeUrl) return youtubeUrl
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(name + ' proper form for runners')}`
+}
+
+function getYoutubeThumbnail(youtubeUrl: string | null | undefined): string | null {
+  if (!youtubeUrl) return null
+  const match = youtubeUrl.match(/[?&]v=([^&#]+)/)
+  if (!match) return null
+  return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -508,28 +522,53 @@ export default function LiftingPlan() {
                 </div>
               </div>
 
-              {/* YouTube demo button — stored URL or search fallback */}
+              {/* YouTube thumbnail + demo button */}
               {(() => {
                 const storedUrl = 'youtube_url' in modal.ex ? modal.ex.youtube_url : null
-                const demoUrl = storedUrl
-                  ?? `https://www.youtube.com/results?search_query=${encodeURIComponent(modal.ex.name + ' exercise demo')}`
+                const demoUrl = getYoutubeUrl(modal.ex.name, storedUrl)
+                const thumbnail = getYoutubeThumbnail(storedUrl)
                 return (
-                  <a
-                    href={demoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative overflow-hidden flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-blue-500/40 text-sm font-semibold text-blue-300 active:opacity-80 transition-opacity"
-                    style={{
-                      background: 'linear-gradient(105deg, #1e3a5f 0%, #1d4ed8 40%, #60a5fa 50%, #1d4ed8 60%, #1e3a5f 100%)',
-                      backgroundSize: '300% auto',
-                      animation: 'shimmer 2.4s linear infinite',
-                    }}
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
-                    </svg>
-                    {storedUrl ? 'Watch Demo' : 'Search Demo'}
-                  </a>
+                  <div className="space-y-3">
+                    {/* Thumbnail */}
+                    <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden">
+                      {thumbnail ? (
+                        <img
+                          src={thumbnail}
+                          alt={`${modal.ex.name} demo`}
+                          className="w-full object-cover aspect-video bg-zinc-800"
+                          onError={e => {
+                            const img = e.currentTarget
+                            img.style.display = 'none'
+                            img.nextElementSibling?.classList.remove('hidden')
+                          }}
+                        />
+                      ) : null}
+                      <div className={`${thumbnail ? 'hidden' : ''} w-full aspect-video bg-zinc-800 flex flex-col items-center justify-center gap-2`}>
+                        <svg className="w-8 h-8 text-zinc-600" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
+                        </svg>
+                        <p className="text-xs text-zinc-500 text-center px-4">{modal.ex.name}</p>
+                      </div>
+                    </a>
+
+                    {/* Button */}
+                    <a
+                      href={demoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative overflow-hidden flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl border border-blue-500/40 text-sm font-semibold text-blue-300 active:opacity-80 transition-opacity"
+                      style={{
+                        background: 'linear-gradient(105deg, #1e3a5f 0%, #1d4ed8 40%, #60a5fa 50%, #1d4ed8 60%, #1e3a5f 100%)',
+                        backgroundSize: '300% auto',
+                        animation: 'shimmer 2.4s linear infinite',
+                      }}
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
+                      </svg>
+                      {storedUrl ? 'Watch Demo' : 'Search Demo on YouTube'}
+                    </a>
+                  </div>
                 )
               })()}
 
