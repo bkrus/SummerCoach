@@ -529,27 +529,17 @@ export default function LiftingPlan() {
                 const thumbnail = getYoutubeThumbnail(storedUrl)
                 return (
                   <div className="space-y-3">
-                    {/* Thumbnail */}
-                    <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden">
-                      {thumbnail ? (
+                    {/* Thumbnail — only shown when a direct URL exists */}
+                    {thumbnail && (
+                      <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden">
                         <img
                           src={thumbnail}
                           alt={`${modal.ex.name} demo`}
                           className="w-full object-cover aspect-video bg-zinc-800"
-                          onError={e => {
-                            const img = e.currentTarget
-                            img.style.display = 'none'
-                            img.nextElementSibling?.classList.remove('hidden')
-                          }}
+                          onError={e => { e.currentTarget.parentElement!.style.display = 'none' }}
                         />
-                      ) : null}
-                      <div className={`${thumbnail ? 'hidden' : ''} w-full aspect-video bg-zinc-800 flex flex-col items-center justify-center gap-2`}>
-                        <svg className="w-8 h-8 text-zinc-600" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
-                        </svg>
-                        <p className="text-xs text-zinc-500 text-center px-4">{modal.ex.name}</p>
-                      </div>
-                    </a>
+                      </a>
+                    )}
 
                     {/* Button */}
                     <a
