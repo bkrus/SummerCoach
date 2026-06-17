@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useReducer } from 'react'
 import { supabase } from '../lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -40,6 +40,41 @@ interface AiSuggestion {
 interface ModalState {
   ex: DbExercise | AiSuggestion
   isPreview: boolean
+}
+
+// ─── Timer helpers ────────────────────────────────────────────────────────────
+
+const isTimeBased = (reps: string): boolean => {
+  const l = reps.toLowerCase()
+  return l.includes('second') || l.includes('minute') || l.includes('sec') || l.includes('min')
+}
+
+const parseDuration = (reps: string): number => {
+  const rangeMatch = reps.match(/(\d+)-(\d+)/)
+  if (rangeMatch) return Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2)
+  const minuteMatch = reps.match(/(\d+)\s*min/i)
+  if (minuteMatch) return parseInt(minuteMatch[1]) * 60
+  const secondMatch = reps.match(/(\d+)\s*sec/i)
+  if (secondMatch) return parseInt(secondMatch[1])
+  return 30
+}
+
+function playBeep() {
+  try {
+    type WinWithWebkit = Window & { webkitAudioContext?: typeof AudioContext }
+    const AudioCtx = window.AudioContext ?? (window as WinWithWebkit).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.3, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.3)
+  } catch { /* AudioContext unavailable */ }
 }
 
 // ─── YouTube helpers ──────────────────────────────────────────────────────────
@@ -458,18 +493,22 @@ export default function LiftingPlan() {
                 </button>
               </div>
 
-              {/* Sets × Reps */}
-              <div className="rounded-2xl bg-zinc-800/50 border border-zinc-700/40 p-5 flex items-center justify-center gap-6 mb-4">
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-white tabular-nums">{modal.ex.sets}</p>
-                  <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest">Sets</p>
+              {/* Sets × Reps — or timer for time-based exercises */}
+              {isTimeBased(modal.ex.reps) ? (
+                <ExerciseTimer key={modal.ex.name} sets={modal.ex.sets} reps={modal.ex.reps} />
+              ) : (
+                <div className="rounded-2xl bg-zinc-800/50 border border-zinc-700/40 p-5 flex items-center justify-center gap-6 mb-4">
+                  <div className="text-center">
+                    <p className="text-4xl font-bold text-white tabular-nums">{modal.ex.sets}</p>
+                    <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest">Sets</p>
+                  </div>
+                  <p className="text-2xl text-zinc-600 font-light">×</p>
+                  <div className="text-center">
+                    <p className="text-4xl font-bold text-coach-400 tabular-nums">{modal.ex.reps}</p>
+                    <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest">Reps</p>
+                  </div>
                 </div>
-                <p className="text-2xl text-zinc-600 font-light">×</p>
-                <div className="text-center">
-                  <p className="text-4xl font-bold text-coach-400 tabular-nums">{modal.ex.reps}</p>
-                  <p className="text-xs text-zinc-500 mt-1 uppercase tracking-widest">Reps</p>
-                </div>
-              </div>
+              )}
 
               {/* AI reasoning */}
               {'ai_reasoning' in modal.ex && modal.ex.ai_reasoning && (
@@ -570,6 +609,207 @@ export default function LiftingPlan() {
         </>
       )}
 
+    </div>
+  )
+}
+
+// ─── Exercise Timer ───────────────────────────────────────────────────────────
+
+const REST_SECONDS = 15
+const TIMER_RADIUS = 54
+const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS
+
+type TimerPhase = 'work' | 'rest' | 'complete'
+
+type TimerState = {
+  totalSeconds: number
+  remainingSeconds: number
+  isRunning: boolean
+  currentSet: number
+  totalSets: number
+  phase: TimerPhase
+  side: 'left' | 'right' | null
+  flash: boolean
+}
+
+type TimerAction =
+  | { type: 'START' }
+  | { type: 'PAUSE' }
+  | { type: 'RESET' }
+  | { type: 'TICK' }
+  | { type: 'CLEAR_FLASH' }
+
+function timerReducer(state: TimerState, action: TimerAction): TimerState {
+  switch (action.type) {
+    case 'START':      return { ...state, isRunning: true }
+    case 'PAUSE':      return { ...state, isRunning: false }
+    case 'CLEAR_FLASH': return { ...state, flash: false }
+    case 'RESET':
+      return {
+        ...state,
+        remainingSeconds: state.totalSeconds,
+        isRunning: false,
+        currentSet: 1,
+        phase: 'work',
+        side: state.side != null ? 'left' : null,
+        flash: false,
+      }
+    case 'TICK': {
+      if (!state.isRunning || state.phase === 'complete') return state
+      const next = state.remainingSeconds - 1
+      if (next > 0) return { ...state, remainingSeconds: next }
+
+      // Reached zero
+      if (state.phase === 'work') {
+        // Mid-set: switch to right side (no rest between sides)
+        if (state.side === 'left') {
+          return { ...state, remainingSeconds: state.totalSeconds, side: 'right', flash: true }
+        }
+        // Last set done
+        if (state.currentSet >= state.totalSets) {
+          return { ...state, remainingSeconds: 0, isRunning: false, phase: 'complete', flash: true }
+        }
+        // More sets: start rest
+        return { ...state, remainingSeconds: REST_SECONDS, phase: 'rest', flash: true }
+      }
+
+      if (state.phase === 'rest') {
+        // Rest done: start next set (no beep)
+        return {
+          ...state,
+          remainingSeconds: state.totalSeconds,
+          phase: 'work',
+          currentSet: state.currentSet + 1,
+          side: state.side != null ? 'left' : null,
+          flash: false,
+        }
+      }
+
+      return state
+    }
+    default: return state
+  }
+}
+
+function fmtTime(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+function ExerciseTimer({ sets, reps }: { sets: number; reps: string }) {
+  const totalSeconds = parseDuration(reps)
+  const eachSide = reps.toLowerCase().includes('each side') || reps.toLowerCase().includes('each leg')
+
+  const [state, dispatch] = useReducer(timerReducer, {
+    totalSeconds,
+    remainingSeconds: totalSeconds,
+    isRunning: false,
+    currentSet: 1,
+    totalSets: sets,
+    phase: 'work',
+    side: eachSide ? 'left' : null,
+    flash: false,
+  })
+
+  // Tick interval
+  useEffect(() => {
+    if (!state.isRunning) return
+    const id = setInterval(() => dispatch({ type: 'TICK' }), 1000)
+    return () => clearInterval(id)
+  }, [state.isRunning])
+
+  // Beep + vibrate on flash
+  useEffect(() => {
+    if (!state.flash) return
+    playBeep()
+    navigator.vibrate?.(200)
+    const id = setTimeout(() => dispatch({ type: 'CLEAR_FLASH' }), 600)
+    return () => clearTimeout(id)
+  }, [state.flash])
+
+  const displayTotal = state.phase === 'rest' ? REST_SECONDS : state.totalSeconds
+  const progress = displayTotal > 0 ? state.remainingSeconds / displayTotal : 0
+  const strokeDashoffset = TIMER_CIRCUMFERENCE * (1 - progress)
+  const ringColor = state.phase === 'rest' ? '#f59e0b' : '#2d9a57'
+
+  if (state.phase === 'complete') {
+    return (
+      <div className="rounded-2xl bg-zinc-800/50 border border-zinc-700/40 p-5 text-center mb-4">
+        <p className="text-3xl mb-1">🎉</p>
+        <p className="text-lg font-bold text-white mb-1">Complete!</p>
+        <p className="text-sm text-zinc-400">{sets} sets × {reps}</p>
+        <button
+          onClick={() => dispatch({ type: 'RESET' })}
+          className="mt-4 px-5 py-2.5 rounded-xl bg-zinc-700 border border-zinc-600 text-sm font-semibold text-zinc-300 active:scale-95 transition-transform"
+        >
+          Reset
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`rounded-2xl border p-5 mb-4 transition-colors duration-300 ${
+      state.flash ? 'bg-green-950/60 border-green-700/50' : 'bg-zinc-800/50 border-zinc-700/40'
+    }`}>
+      {/* Progress ring */}
+      <div className="flex justify-center mb-3">
+        <div className="relative">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle cx="70" cy="70" r={TIMER_RADIUS} fill="none" stroke="#27272a" strokeWidth="8" />
+            <circle
+              cx="70" cy="70" r={TIMER_RADIUS}
+              fill="none" stroke={ringColor} strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={TIMER_CIRCUMFERENCE}
+              strokeDashoffset={strokeDashoffset}
+              transform="rotate(-90 70 70)"
+              style={{ transition: state.isRunning ? 'stroke-dashoffset 1s linear' : 'none' }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            {state.phase === 'rest' && (
+              <p className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-0.5">Rest</p>
+            )}
+            <p className="text-3xl font-bold text-white tabular-nums leading-none">
+              {fmtTime(state.remainingSeconds)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Set + side label */}
+      <p className="text-sm font-medium text-zinc-400 text-center mb-4">
+        Set {state.currentSet} of {state.totalSets}
+        {state.side ? ` · ${state.side === 'left' ? 'Left Side' : 'Right Side'}` : ''}
+        {state.phase === 'rest' ? ' · Rest' : ''}
+      </p>
+
+      {/* Controls */}
+      <div className="flex gap-2">
+        {!state.isRunning ? (
+          <button
+            onClick={() => dispatch({ type: 'START' })}
+            className="flex-1 py-3 rounded-xl bg-green-800 border border-green-600/60 text-sm font-bold text-white active:scale-95 transition-transform"
+          >
+            Start
+          </button>
+        ) : (
+          <button
+            onClick={() => dispatch({ type: 'PAUSE' })}
+            className="flex-1 py-3 rounded-xl bg-amber-800/80 border border-amber-600/60 text-sm font-bold text-white active:scale-95 transition-transform"
+          >
+            Pause
+          </button>
+        )}
+        <button
+          onClick={() => dispatch({ type: 'RESET' })}
+          className="px-5 py-3 rounded-xl bg-zinc-700 border border-zinc-600 text-sm font-bold text-zinc-300 active:scale-95 transition-transform"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   )
 }
