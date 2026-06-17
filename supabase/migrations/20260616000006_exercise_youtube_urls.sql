@@ -1,0 +1,26 @@
+-- Add YouTube demo URLs to existing exercises
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=sSESeQAir2M' WHERE name = 'Kettlebell Swings';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=2C-uNgKwPLE' WHERE name = 'Bulgarian Split Squats';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=LM8XHLYJoYs' WHERE name = 'Barbell Hip Thrusts';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=2dlBqt4Abz0' WHERE name = 'Single-Leg Romanian Deadlift';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=rt17lmnaLSM' WHERE name = 'Kettlebell Farmer Carries';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=gwLzBJYoWlI' WHERE name = 'Single-Leg Calf Raises';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=RVDMihn4Ses' WHERE name = 'TRX Single-Leg Squats';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=MxsFDiKCe-g' WHERE name = 'Goblet Squats';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=3oJMFXDqVws' WHERE name = 'TRX Hamstring Curls';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=WCFCdxzFBa4' WHERE name = 'Step-Ups with Dumbbells';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=6hLqXWVMPJI' WHERE name = 'TRX Hip Press';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=YQmpDMeROSs' WHERE name = 'Hip Flexor Stretch Circuit';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=eGo4IYlbE5g' WHERE name = 'Pull-Ups or Lat Pulldown';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=VmB1G1K7v94' WHERE name = 'Dumbbell Bench Press';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=pYcpY20QaE8' WHERE name = 'Single-Arm Kettlebell Row';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=eIq5CB9JfKE' WHERE name = 'Face Pulls';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=AH_QZLm_0-s' WHERE name = 'Pallof Press';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=4XLEnwUr1d8' WHERE name = 'Dead Bug';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=pSHjTRCQxIw' WHERE name = 'Plank Variations';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=r7SdXOzUsrY' WHERE name = 'Foam Rolling — Full Lower Body';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=3-OJBjE_Mj8' WHERE name = 'Hip 90/90 Stretch';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=kDiJKTMsJSk' WHERE name = 'Glute Activation Circuit';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=YQmpDMeROSs' WHERE name = 'TRX Hip Flexor Stretch';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=pFJ5-3wLFhQ' WHERE name = 'Ankle Mobility Drills';
+UPDATE exercises SET youtube_url = 'https://www.youtube.com/watch?v=kgTL5G0GJ8s' WHERE name = 'Diaphragmatic Breathing';

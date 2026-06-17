@@ -324,6 +324,7 @@ export default function LiftingPlan() {
               reps={ex.reps}
               isAi={ex.is_ai_suggested}
               aiReasoning={ex.ai_reasoning}
+              youtubeUrl={ex.youtube_url}
               onTap={() => openModal(ex, false)}
             />
           ))}
@@ -538,6 +539,7 @@ function ExerciseCard({
   reps,
   isAi,
   aiReasoning,
+  youtubeUrl,
   onTap,
 }: {
   name: string
@@ -546,6 +548,7 @@ function ExerciseCard({
   reps: string
   isAi: boolean
   aiReasoning?: string | null
+  youtubeUrl?: string | null
   onTap: () => void
 }) {
   return (
@@ -578,10 +581,15 @@ function ExerciseCard({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+        <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
           <span className="text-sm font-bold text-coach-400 tabular-nums whitespace-nowrap">
             {sets}×{reps}
           </span>
+          {youtubeUrl && (
+            <svg className="w-3.5 h-3.5 text-red-500/70 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55a3.02 3.02 0 00-2.12 2.14C0 8.03 0 12 0 12s0 3.97.5 5.81a3.02 3.02 0 002.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 002.12-2.14C24 15.97 24 12 24 12s0-3.97-.5-5.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
+            </svg>
+          )}
           <svg className="w-4 h-4 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <polyline points="9 18 15 12 9 6" />
           </svg>
