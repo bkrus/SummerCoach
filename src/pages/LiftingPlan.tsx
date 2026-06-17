@@ -125,6 +125,9 @@ export default function LiftingPlan() {
 
   const [modal, setModal] = useState<ModalState | null>(null)
   const [modalVisible, setModalVisible] = useState(false)
+  const [thumbError, setThumbError] = useState(false)
+
+  useEffect(() => setThumbError(false), [modal?.ex.name])
 
   const [aiPreview, setAiPreview] = useState<AiSuggestion[]>([])
   const [aiLoading, setAiLoading] = useState(false)
@@ -529,14 +532,14 @@ export default function LiftingPlan() {
                 const thumbnail = getYoutubeThumbnail(storedUrl)
                 return (
                   <div className="space-y-3">
-                    {/* Thumbnail — only shown when a direct URL exists */}
-                    {thumbnail && (
+                    {/* Thumbnail — only shown when a direct URL exists and hasn't errored */}
+                    {thumbnail && !thumbError && (
                       <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden">
                         <img
                           src={thumbnail}
                           alt={`${modal.ex.name} demo`}
                           className="w-full object-cover aspect-video bg-zinc-800"
-                          onError={e => { e.currentTarget.parentElement!.style.display = 'none' }}
+                          onError={() => setThumbError(true)}
                         />
                       </a>
                     )}

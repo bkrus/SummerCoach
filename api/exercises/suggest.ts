@@ -51,7 +51,6 @@ For each suggested exercise provide:
 - form_cues: string array (3-5 cues)
 - common_mistakes: string array (2-3 mistakes)
 - running_benefit: string (one sentence connecting to XC performance)
-- youtube_url: string (real YouTube URL for a form tutorial)
 - ai_reasoning: string (why THIS exercise TODAY for THIS athlete)
 
 Return ONLY a valid JSON array. No markdown, no explanation, just the JSON array.`
