@@ -23,6 +23,7 @@ interface DbExercise {
   notes: string | null
   is_ai_suggested: boolean
   ai_reasoning: string | null
+  day_type: string
 }
 
 interface AiSuggestion {
@@ -123,6 +124,13 @@ const DAY_TYPE_CONTEXT: Record<string, string> = {
 
 const PRACTICE_DAYS = new Set([2, 4, 6])
 
+const SELECTOR_OPTIONS = [
+  { label: 'Lower A',  value: 'lower_a' },
+  { label: 'Lower B',  value: 'lower_b' },
+  { label: 'Upper',    value: 'upper' },
+  { label: 'Mobility', value: 'mobility' },
+] as const
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function resolvedDayType(dow: number, readiness: ReadinessStatus | null): string {
@@ -169,6 +177,13 @@ export default function LiftingPlan() {
   const [aiSaving, setAiSaving] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
 
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const [feedbackSuggestion, setFeedbackSuggestion] = useState<AiSuggestion[] | null>(null)
+  const [appliedFeedbackWorkout, setAppliedFeedbackWorkout] = useState<AiSuggestion[] | null>(null)
+
   // Fetch coaching snap for readiness + hasLiftedToday
   useEffect(() => {
     fetch('/api/coaching-message')
@@ -178,18 +193,39 @@ export default function LiftingPlan() {
       .finally(() => setCoachingLoading(false))
   }, [])
 
-  const dayType = resolvedDayType(dow, coaching?.readiness ?? null)
+  const coachDayType = (() => {
+    const r = resolvedDayType(dow, coaching?.readiness ?? null)
+    return r === 'rest' ? 'lower_a' : r
+  })()
 
-  const loadExercises = useCallback(async (dt: string) => {
-    if (dt === 'rest') {
-      setExercises([])
-      return
+  const [selectedDayType, setSelectedDayType] = useState<string | null>(null)
+
+  // Lock in the coach pick once coaching resolves; don't overwrite a manual selection
+  useEffect(() => {
+    if (!coachingLoading && selectedDayType === null) {
+      setSelectedDayType(coachDayType)
     }
+  }, [coachingLoading, coachDayType, selectedDayType])
+
+  // Clear AI state when the user switches day type
+  useEffect(() => {
+    if (selectedDayType !== null) {
+      setAiPreview([])
+      setAiError(null)
+      setFeedbackSuggestion(null)
+      setAppliedFeedbackWorkout(null)
+    }
+  }, [selectedDayType])
+
+  const activeDayType = selectedDayType ?? coachDayType
+  const isCustom = activeDayType !== coachDayType
+
+  const loadExercises = useCallback(async () => {
     setExercisesLoading(true)
     const { data } = await supabase
       .from('exercises')
-      .select('id, name, equipment, sets, reps, form_cues, common_mistakes, running_benefit, youtube_url, notes, is_ai_suggested, ai_reasoning')
-      .eq('day_type', dt)
+      .select('id, name, equipment, sets, reps, form_cues, common_mistakes, running_benefit, youtube_url, notes, is_ai_suggested, ai_reasoning, day_type')
+      .in('day_type', ['lower_a', 'lower_b', 'upper', 'mobility'])
       .order('is_ai_suggested', { ascending: true })
       .order('sort_order', { ascending: true })
     setExercises((data as DbExercise[]) ?? [])
@@ -197,8 +233,8 @@ export default function LiftingPlan() {
   }, [])
 
   useEffect(() => {
-    if (!coachingLoading) void loadExercises(dayType)
-  }, [coachingLoading, dayType, loadExercises])
+    if (!coachingLoading) void loadExercises()
+  }, [coachingLoading, loadExercises])
 
   // Modal
   function openModal(ex: DbExercise | AiSuggestion, isPreview: boolean) {
@@ -250,13 +286,13 @@ export default function LiftingPlan() {
         ctx.push(`Recent activities: ${lines.join('; ')}`)
       }
 
-      const currentExerciseNames = exercises.map(e => e.name)
+      const currentExerciseNames = activeExercises.map(e => e.name)
 
       const res = await fetch('/api/exercises/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          day_type: dayType,
+          day_type: activeDayType,
           athlete_context: ctx.join('\n'),
           current_exercises: currentExerciseNames,
           save: false,
@@ -282,7 +318,7 @@ export default function LiftingPlan() {
       const rows = aiPreview.map((ex, i) => ({
         name: ex.name,
         equipment: ex.equipment ?? [],
-        day_type: dayType,
+        day_type: activeDayType,
         sort_order: 100 + i,
         sets: ex.sets,
         reps: ex.reps,
@@ -297,7 +333,7 @@ export default function LiftingPlan() {
       if (error) throw error
 
       setAiPreview([])
-      await loadExercises(dayType)
+      await loadExercises()
     } catch (err) {
       setAiError((err as Error).message)
     } finally {
@@ -305,11 +341,52 @@ export default function LiftingPlan() {
     }
   }
 
-  const isRest = dayType === 'rest'
+  async function submitFeedback() {
+    const text = feedbackText.trim()
+    if (!text) return
+    setFeedbackLoading(true)
+    setFeedbackError(null)
+    setFeedbackSuggestion(null)
+
+    try {
+      const ctx: string[] = [
+        `User feedback: ${text}`,
+        `Coach recommended day type: ${coachDayType}`,
+        `Selected day type: ${activeDayType}`,
+        `Is custom selection: ${isCustom ? 'yes' : 'no'}`,
+        `Readiness: ${coaching?.readiness ?? 'unknown'}`,
+        `Has lifted today: ${coaching?.hasLiftedToday ? 'yes' : 'no'}`,
+      ]
+
+      const res = await fetch('/api/exercises/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day_type: activeDayType,
+          athlete_context: ctx.join('\n'),
+          current_exercises: displayedExercises.map(e => e.name),
+          save: false,
+        }),
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setFeedbackSuggestion((await res.json()) as AiSuggestion[])
+      setFeedbackText('')
+    } catch (err) {
+      setFeedbackError((err as Error).message)
+    } finally {
+      setFeedbackLoading(false)
+    }
+  }
+
+  const isRest = false
   const isLoading = coachingLoading || exercisesLoading
   const hasLiftedToday = coaching?.hasLiftedToday ?? false
   const readiness = coaching?.readiness ?? null
-  const dayContext = buildDayContext(dow, dayType, readiness)
+  const dayContext = buildDayContext(dow, activeDayType, readiness)
+  const displayedExercises = exercises.filter(e => e.day_type === activeDayType)
+  const activeExercises = appliedFeedbackWorkout ?? displayedExercises
+  const isAiAdjusted = appliedFeedbackWorkout !== null
 
   return (
     <div className="px-4 pt-6 pb-6 space-y-4">
@@ -317,9 +394,97 @@ export default function LiftingPlan() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">
-          {DAY_TYPE_DISPLAY[dayType] ?? 'Lifting Plan'}
+          {DAY_TYPE_DISPLAY[activeDayType] ?? 'Lifting Plan'}
         </h1>
         <p className="text-sm text-zinc-400 mt-0.5">{dayContext}</p>
+      </div>
+
+      {/* Day type selector */}
+      <div className="space-y-2">
+        <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
+          {SELECTOR_OPTIONS.map(opt => {
+            const isActive = activeDayType === opt.value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedDayType(opt.value)}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-[#1E6B3C] text-white border border-[#1E6B3C]'
+                    : 'text-zinc-400 border border-zinc-700 active:bg-zinc-800'
+                }`}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isAiAdjusted ? (
+            <span className="text-[11px] font-semibold text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-700 bg-zinc-800/60 tracking-wide">
+              Custom (AI-adjusted)
+            </span>
+          ) : isCustom ? (
+            <span className="text-[11px] font-semibold text-zinc-500 px-2 py-0.5 rounded-full border border-zinc-700 bg-zinc-800/60 tracking-wide">
+              Custom
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold text-[#2d9a57] px-2 py-0.5 rounded-full border border-[#1E6B3C]/50 bg-[#1E6B3C]/10 tracking-wide">
+              Coach pick
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Feedback panel */}
+      <div>
+        {!feedbackOpen ? (
+          <button
+            onClick={() => setFeedbackOpen(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 active:text-zinc-300 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Adjust workout
+          </button>
+        ) : (
+          <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Tell the coach</p>
+              <button
+                onClick={() => setFeedbackOpen(false)}
+                className="text-zinc-600 active:text-zinc-400 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <textarea
+              value={feedbackText}
+              onChange={e => setFeedbackText(e.target.value)}
+              rows={2}
+              placeholder="e.g. 'knees are sore' or 'focus on glutes today'"
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 resize-none focus:outline-none focus:border-coach-600"
+            />
+            {feedbackError && (
+              <p className="text-xs text-red-400">{feedbackError}</p>
+            )}
+            <button
+              onClick={() => void submitFeedback()}
+              disabled={feedbackLoading || !feedbackText.trim()}
+              className="w-full py-3 rounded-xl bg-[#1E6B3C] border border-[#1E6B3C] text-sm font-semibold text-white disabled:opacity-40 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+            >
+              {feedbackLoading ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  Thinking...
+                </>
+              ) : 'Get Adjusted Workout'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Status banners */}
@@ -358,9 +523,63 @@ export default function LiftingPlan() {
       )}
 
       {/* No exercises found */}
-      {!isLoading && !isRest && exercises.length === 0 && aiPreview.length === 0 && (
+      {!isLoading && !isRest && activeExercises.length === 0 && aiPreview.length === 0 && !feedbackSuggestion && (
         <div className="rounded-2xl bg-zinc-900 border border-zinc-800 px-4 py-6 text-center">
           <p className="text-sm text-zinc-500">No exercises found for today's session</p>
+        </div>
+      )}
+
+      {/* Feedback suggestion card */}
+      {!isLoading && feedbackSuggestion && (
+        <div className="rounded-2xl bg-green-950/30 border border-green-800/40 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-coach-900 border border-coach-700 text-coach-400 uppercase tracking-wide">
+                AI Suggestion
+              </span>
+              <p className="text-xs text-zinc-500">Based on your feedback</p>
+            </div>
+            <button
+              onClick={() => setFeedbackSuggestion(null)}
+              className="text-zinc-600 active:text-zinc-400 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-0">
+            {feedbackSuggestion.map((ex, i) => (
+              <div key={i} className={`flex items-start justify-between gap-3 py-2.5 ${i < feedbackSuggestion.length - 1 ? 'border-b border-green-900/40' : ''}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white">{ex.name}</p>
+                  {ex.ai_reasoning && (
+                    <p className="text-xs text-zinc-500 italic leading-snug line-clamp-1 mt-0.5">{ex.ai_reasoning}</p>
+                  )}
+                </div>
+                <span className="text-sm font-bold text-coach-400 tabular-nums whitespace-nowrap flex-shrink-0 mt-0.5">
+                  {ex.sets}×{ex.reps}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => {
+                setAppliedFeedbackWorkout(feedbackSuggestion)
+                setFeedbackSuggestion(null)
+              }}
+              className="flex-1 py-2.5 rounded-xl bg-[#1E6B3C] border border-[#1E6B3C] text-sm font-semibold text-white active:scale-[0.98] transition-transform"
+            >
+              Apply This Workout
+            </button>
+            <button
+              onClick={() => setFeedbackSuggestion(null)}
+              className="px-4 py-2.5 rounded-xl border border-zinc-700 text-sm font-medium text-zinc-400 active:bg-zinc-800 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
 
@@ -368,20 +587,23 @@ export default function LiftingPlan() {
       {!isLoading && !isRest && (
         <div className="space-y-2.5">
 
-          {/* DB exercises */}
-          {exercises.map(ex => (
-            <ExerciseCard
-              key={ex.id}
-              name={ex.name}
-              equipment={ex.equipment}
-              sets={ex.sets}
-              reps={ex.reps}
-              isAi={ex.is_ai_suggested}
-              aiReasoning={ex.ai_reasoning}
-              youtubeUrl={ex.youtube_url}
-              onTap={() => openModal(ex, false)}
-            />
-          ))}
+          {/* Exercises (DB or AI-applied) */}
+          {activeExercises.map((ex, i) => {
+            const isDb = 'id' in ex
+            return (
+              <ExerciseCard
+                key={isDb ? ex.id : `applied-${i}`}
+                name={ex.name}
+                equipment={ex.equipment}
+                sets={ex.sets}
+                reps={ex.reps}
+                isAi={isDb ? ex.is_ai_suggested : true}
+                aiReasoning={ex.ai_reasoning}
+                youtubeUrl={isDb ? ex.youtube_url : (ex as AiSuggestion).youtube_url ?? null}
+                onTap={() => openModal(ex, !isDb)}
+              />
+            )
+          })}
 
           {/* AI preview section */}
           {aiPreview.length > 0 && (
